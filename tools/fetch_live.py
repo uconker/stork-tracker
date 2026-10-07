@@ -11,8 +11,9 @@ Please ask the study's owner before publishing live positions or lowering the de
 import argparse, csv, io, math, os, re, sys, urllib.parse, urllib.request, base64
 from datetime import datetime, timedelta, timezone
 
-STUDY_ID = "170501269"            # Ciconia ciconia Sudewiesen_2
+STUDY_ID = "24442409"             # LifeTrack White Stork Bavaria (CC BY, W. Fiedler et al.)
 API = "https://www.movebank.org/movebank/service/direct-read"
+MAXA = 20                         # animals on the board
 MAXP = 64                         # points per animal on the board
 
 def dist_km(a, b):
@@ -24,7 +25,7 @@ def download(study, days, user, pw):
     start = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y%m%d%H%M%S000")
     q = urllib.parse.urlencode({"entity_type": "event", "study_id": study, "sensor_type_id": 653,
                                 "timestamp_start": start,
-                                "attributes": "timestamp,location_long,location_lat,individual_local_identifier"})
+                                "attributes": "timestamp,location_long,location_lat,individual_local_identifier,visible"})
     req = urllib.request.Request(API + "?" + q)
     req.add_header("Authorization", "Basic " + base64.b64encode(("%s:%s" % (user, pw)).encode()).decode())
     try:
@@ -73,6 +74,7 @@ def parse(text, delay_h):
             bad += 1
             if bad == 1: print("first unreadable row:", dict(row))
             continue
+        if (row.get("visible") or "true").strip().lower() == "false": continue      # Movebank-marked outliers
         if ts > cut: late += 1; continue
         per.setdefault(k, []).append((ts, lon, lat))
     print("rows: %d read, %d unreadable, %d newer than the delay, %d kept (%d animals)" % (seen, bad, late, sum(map(len, per.values())), len(per)))
@@ -85,7 +87,8 @@ def short(name):
 def build(per, now, delay_h, step_h=12):
     out = ["STORKLIVE1", "gen=%s" % now.strftime("%Y-%m-%dT%H:%MZ")]
     n_animals = 0
-    for k in sorted(per):
+    keep = sorted(per, key=lambda k: max(p[0] for p in per[k]), reverse=True)[:MAXA]   # most recently seen
+    for k in sorted(keep):
         pts = sorted(per[k]); thin, last = [], None
         for p in pts:
             if last is None or (p[0]-last).total_seconds() >= step_h*3600: thin.append(p); last = p[0]
@@ -101,7 +104,7 @@ def build(per, now, delay_h, step_h=12):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--input"); ap.add_argument("--study", default=STUDY_ID)
-    ap.add_argument("--days", type=int, default=45); ap.add_argument("--delay-hours", type=float, default=24)
+    ap.add_argument("--days", type=int, default=10); ap.add_argument("--delay-hours", type=float, default=24)
     ap.add_argument("--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "live.txt"))
     a = ap.parse_args()
     if a.input: text = open(a.input, encoding="utf-8-sig").read()
