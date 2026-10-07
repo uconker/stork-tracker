@@ -69,7 +69,8 @@ def parse(text, delay_h):
         try:
             lon = float(row.get("location-long") or row["location_long"]); lat = float(row.get("location-lat") or row["location_lat"])
             ts = datetime.fromisoformat(row["timestamp"].replace("Z", "").split(".")[0])
-            k = row.get("individual-local-identifier") or row["individual_local_identifier"]
+            k = (row.get("individual-local-identifier") or row["individual_local_identifier"]).strip()
+            if not k: bad += 1; continue                       # fixes without an animal name would mix animals
         except (ValueError, KeyError, TypeError):
             bad += 1
             if bad == 1: print("first unreadable row:", dict(row))
@@ -88,14 +89,22 @@ def build(per, now, delay_h, step_h=12):
     out = ["STORKLIVE1", "gen=%s" % now.strftime("%Y-%m-%dT%H:%MZ")]
     n_animals = 0
     keep = sorted(per, key=lambda k: max(p[0] for p in per[k]), reverse=True)[:MAXA]   # most recently seen
+    base = {k: short(k) for k in keep}
+    cnt = {}
+    for k in sorted(keep): cnt[base[k]] = cnt.get(base[k], 0) + 1
+    seen = {}
     for k in sorted(keep):
+        nm = base[k]
+        if cnt[nm] > 1:                                        # same short name: Frensdor#1, Frensdor#2 ...
+            seen[nm] = seen.get(nm, 0) + 1
+            nm = nm.strip()[:8] + "#" + str(seen[nm])
         pts = sorted(per[k]); thin, last = [], None
         for p in pts:
             if last is None or (p[0]-last).total_seconds() >= step_h*3600: thin.append(p); last = p[0]
         if pts[-1] is not thin[-1]: thin.append(pts[-1])        # always include the newest fix
         thin = thin[-MAXP:]
         age_min = int((now - pts[-1][0]).total_seconds() // 60)
-        out.append("A|%s|%d" % (short(k), age_min))
+        out.append("A|%s|%d" % (nm, age_min))
         for t, lon, lat in thin:
             out.append("P|%d|%d|%d" % (round(lon*10), round(lat*10), int((now - t).total_seconds() // 3600)))
         n_animals += 1
