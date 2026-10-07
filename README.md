@@ -15,9 +15,9 @@ Without `board/src/secrets.h` the board runs REPLAY only.
     python -m platformio run -t upload
 
 ## Live data (GitHub Actions + Movebank)
-Study used: "Ciconia ciconia Sudewiesen_2" (Movebank study ID 170501269, PI Steffen Hollerberbach).
-1. Open the study in Movebank while logged in and accept its terms/licence (once). The licence is "Custom / terms not set":
-   **ask the PI before publishing positions** and keep the privacy defaults: positions rounded to ~11 km and delayed 24 h (`--delay-hours`).
+Study used: "LifeTrack White Stork Bavaria" (Movebank study ID 24442409, PI Wolfgang Fiedler), licence CC BY.
+Please credit: Fiedler W, Leppelsack E, Leppelsack H, Stahl T, Wieding O, Wikelski M. 2024. Data from: Study "LifeTrack White Stork Bavaria" (2014-2023). Movebank Data Repository. https://doi.org/10.5441/001/1.v1cs4nn0_2
+1. Open the study in Movebank while logged in and accept its terms once (if it asks). Positions are rounded to ~11 km and delayed 24 h (`--delay-hours`); the board shows the 20 most recently seen storks.
 2. Put this folder in a GitHub repo. Repo > Settings > Secrets and variables > Actions: add `MOVEBANK_USER` and `MOVEBANK_PASSWORD` (your own login, typed by you).
 3. Actions tab > "update stork live data" > Run workflow. It writes `data/live.txt` every 3 h.
 4. DATA_URL in secrets.h = `https://raw.githubusercontent.com/<user>/<repo>/main/data/live.txt`
