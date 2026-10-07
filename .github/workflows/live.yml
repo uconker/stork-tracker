@@ -1,0 +1,23 @@
+name: update stork live data
+on:
+  schedule: [{cron: "17 */3 * * *"}]     # every 3 hours
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Download positions from Movebank
+        env:
+          MOVEBANK_USER: ${{ secrets.MOVEBANK_USER }}
+          MOVEBANK_PASSWORD: ${{ secrets.MOVEBANK_PASSWORD }}
+        run: python tools/fetch_live.py
+      - name: Commit if changed
+        run: |
+          git config user.name "stork-bot"; git config user.email "stork-bot@users.noreply.github.com"
+          git add data/live.txt
+          git diff --cached --quiet || (git commit -m "update live data" && git push)
