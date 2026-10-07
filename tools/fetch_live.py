@@ -39,6 +39,26 @@ def download(study, days, user, pw):
                  "accept the terms once, then try again.")
     return body
 
+def get(params, user, pw, limit=600):
+    req = urllib.request.Request(API + "?" + urllib.parse.urlencode(params))
+    req.add_header("Authorization", "Basic " + base64.b64encode(("%s:%s" % (user, pw)).encode()).decode())
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r: b = r.read().decode("utf-8-sig", "replace")
+    except urllib.error.HTTPError as e: return "HTTP %s %s" % (e.code, e.reason)
+    return "%d lines | %s" % (b.count("\n"), b[:limit].replace(pw, "***"))
+
+def probe(study, days, user, pw):
+    print("--- no data came back, probing the study ---")
+    print("study info:", get({"entity_type": "study", "study_id": study,
+          "attributes": "name,i_can_see_data,i_have_download_access,there_are_data_which_i_cannot_see,license_type,license_terms,main_location_lat,timestamp_last_deployed_location"}, user, pw, 900))
+    print("sensors in study:", get({"entity_type": "study_attribute", "study_id": study}, user, pw, 400))
+    print("sensor types used:", get({"entity_type": "sensor", "study_id": study}, user, pw, 600))
+    start = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y%m%d%H%M%S000")
+    print("events, any sensor:", get({"entity_type": "event", "study_id": study, "timestamp_start": start,
+          "attributes": "timestamp,sensor_type_id,location_long,location_lat,individual_local_identifier"}, user, pw, 600))
+    print("events, no time limit:", get({"entity_type": "event", "study_id": study, "sensor_type_id": 653,
+          "attributes": "timestamp,location_long,location_lat,individual_local_identifier"}, user, pw, 400))
+
 def parse(text, delay_h):
     r = csv.DictReader(io.StringIO(text)); per = {}
     print("CSV columns:", r.fieldnames); seen = bad = late = 0
@@ -91,6 +111,7 @@ if __name__ == "__main__":
         text = download(a.study, a.days, u, p)
     per, cut = parse(text, a.delay_hours)
     body, n = build(per, datetime.now(timezone.utc).replace(tzinfo=None), a.delay_hours)
+    if n < 1 and not a.input: probe(a.study, a.days, u, p)
     if n < 1: sys.exit("no GPS positions in the data - keeping the old file")
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     open(a.out, "w", newline="\n").write(body)
