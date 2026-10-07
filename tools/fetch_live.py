@@ -27,8 +27,13 @@ def download(study, days, user, pw):
                                 "attributes": "timestamp,location_long,location_lat,individual_local_identifier"})
     req = urllib.request.Request(API + "?" + q)
     req.add_header("Authorization", "Basic " + base64.b64encode(("%s:%s" % (user, pw)).encode()).decode())
-    with urllib.request.urlopen(req, timeout=120) as r:
-        body = r.read().decode("utf-8-sig")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            body = r.read().decode("utf-8-sig", "replace")
+            print("Movebank: HTTP %s, %s, %d bytes" % (r.status, r.headers.get("Content-Type"), len(body)))
+    except urllib.error.HTTPError as e:
+        sys.exit("Movebank: HTTP %s %s - %s" % (e.code, e.reason, e.read()[:300].decode("utf-8", "replace")))
+    print("First 300 characters of the answer:\n" + body[:300].replace(pw, "***"))
     if body.lstrip().lower().startswith(("<html", "<!doctype", "<?xml")) or "license" in body[:300].lower() and "timestamp" not in body[:300].lower():
         sys.exit("Movebank answered with its licence/terms page instead of data. Open the study in your browser while logged in, "
                  "accept the terms once, then try again.")
@@ -36,15 +41,21 @@ def download(study, days, user, pw):
 
 def parse(text, delay_h):
     r = csv.DictReader(io.StringIO(text)); per = {}
+    print("CSV columns:", r.fieldnames); seen = bad = late = 0
     cut = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=delay_h)
     for row in r:
+        seen += 1
         try:
             lon = float(row.get("location-long") or row["location_long"]); lat = float(row.get("location-lat") or row["location_lat"])
             ts = datetime.fromisoformat(row["timestamp"].replace("Z", "").split(".")[0])
             k = row.get("individual-local-identifier") or row["individual_local_identifier"]
-        except (ValueError, KeyError, TypeError): continue
-        if ts > cut: continue
+        except (ValueError, KeyError, TypeError):
+            bad += 1
+            if bad == 1: print("first unreadable row:", dict(row))
+            continue
+        if ts > cut: late += 1; continue
         per.setdefault(k, []).append((ts, lon, lat))
+    print("rows: %d read, %d unreadable, %d newer than the delay, %d kept (%d animals)" % (seen, bad, late, sum(map(len, per.values())), len(per)))
     return per, cut
 
 def short(name):
