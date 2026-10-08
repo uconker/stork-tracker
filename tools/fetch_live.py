@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 STUDY_ID = "24442409"             # LifeTrack White Stork Bavaria (CC BY, W. Fiedler et al.)
 API = "https://www.movebank.org/movebank/service/direct-read"
-MAXA = 20                         # animals on the board
+MAXA = 40                         # animals on the board (firmware LMAXA must match)
 MAXP = 64                         # points per animal on the board
 
 def dist_km(a, b):
@@ -103,7 +103,8 @@ def build(per, now, delay_h, step_h=12):
             nm = nm.strip()[:8] + "#" + str(seen[nm])
         pts = sorted(per[k]); thin, last = [], None
         for p in pts:
-            if last is None or (p[0]-last).total_seconds() >= step_h*3600: thin.append(p); last = p[0]
+            gap = step_h if (now - p[0]).total_seconds() < 7*86400 else 2*step_h     # older than 7 days: one point per day
+            if last is None or (p[0]-last).total_seconds() >= gap*3600: thin.append(p); last = p[0]
         if pts[-1] is not thin[-1]: thin.append(pts[-1])        # always include the newest fix
         thin = thin[-MAXP:]
         age_min = int((now - pts[-1][0]).total_seconds() // 60)
@@ -116,7 +117,7 @@ def build(per, now, delay_h, step_h=12):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--input"); ap.add_argument("--study", default=STUDY_ID)
-    ap.add_argument("--days", type=int, default=10); ap.add_argument("--delay-hours", type=float, default=24)
+    ap.add_argument("--days", type=int, default=45); ap.add_argument("--delay-hours", type=float, default=24)
     ap.add_argument("--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "live.txt"))
     a = ap.parse_args()
     if a.input: text = open(a.input, encoding="utf-8-sig").read()
