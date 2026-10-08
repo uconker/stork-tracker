@@ -117,7 +117,7 @@ def build(per, now, delay_h, step_h=12):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--input"); ap.add_argument("--study", default=STUDY_ID)
-    ap.add_argument("--days", type=int, default=45); ap.add_argument("--delay-hours", type=float, default=24)
+    ap.add_argument("--days", type=int, default=15); ap.add_argument("--delay-hours", type=float, default=24)
     ap.add_argument("--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "live.txt"))
     a = ap.parse_args()
     if a.input: text = open(a.input, encoding="utf-8-sig").read()
