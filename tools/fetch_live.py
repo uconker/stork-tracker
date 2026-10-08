@@ -82,7 +82,10 @@ def parse(text, delay_h):
     return per, cut
 
 def short(name):
-    nm = re.split(r"\s[+/(]", name)[0].strip().encode("ascii", "replace").decode().replace("|", "")
+    nm = re.split(r"\s[+/(]", str(name))[0].strip().encode("ascii", "replace").decode().replace("|", "").replace('"', "")
+    w = nm.split()
+    if len(w) > 1 and w[1][:1].isdigit():                  # "Frensdorf 2-D4523" -> "Frensdorf2" (keeps the number that tells siblings apart)
+        tag = re.match(r"\d+", w[1]).group(0)[:2]; nm = w[0][:10 - len(tag)] + tag
     return nm[:10] or "?"
 
 def build(per, now, delay_h, step_h=12):
