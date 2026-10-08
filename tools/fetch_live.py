@@ -88,8 +88,8 @@ def short(name):
         tag = re.match(r"\d+", w[1]).group(0)[:2]; nm = w[0][:10 - len(tag)] + tag
     return nm[:10] or "?"
 
-def build(per, now, delay_h, step_h=12):
-    out = ["STORKLIVE1", "gen=%s" % now.strftime("%Y-%m-%dT%H:%MZ")]
+def build(per, now, delay_h, step_h=12, days=15):
+    out = ["STORKLIVE1", "gen=%s" % now.strftime("%Y-%m-%dT%H:%MZ"), "days=%d" % days]
     n_animals = 0
     keep = sorted(per, key=lambda k: max(p[0] for p in per[k]), reverse=True)[:MAXA]   # most recently seen
     base = {k: short(k) for k in keep}
@@ -126,7 +126,7 @@ if __name__ == "__main__":
         if not u or not p: sys.exit("set MOVEBANK_USER and MOVEBANK_PASSWORD (your Movebank login) in the environment")
         text = download(a.study, a.days, u, p)
     per, cut = parse(text, a.delay_hours)
-    body, n = build(per, datetime.now(timezone.utc).replace(tzinfo=None), a.delay_hours)
+    body, n = build(per, datetime.now(timezone.utc).replace(tzinfo=None), a.delay_hours, days=a.days)
     if n < 1 and not a.input: probe(a.study, a.days, u, p)
     if n < 1: sys.exit("no GPS positions in the data - keeping the old file")
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
